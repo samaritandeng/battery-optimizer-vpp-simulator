@@ -1,0 +1,12 @@
+{
+  "tool": "mini_emhass",
+  "current_hour": 10,
+  "battery_mode": "idle",
+  "battery_setpoint_kw": 0.0,
+  "setpoint_convention": "positive=charge, negative=discharge",
+  "flexible_load_name": "ev_charger",
+  "flexible_load_setpoint_kw": 3.0,
+  "expected_grid_import_kw": 0.0,
+  "expected_grid_export_kw": 0.43,
+  "soc_target_end_kwh": 1.0
+}

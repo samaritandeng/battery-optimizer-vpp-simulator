@@ -1,0 +1,37 @@
+{
+  "cost_function": "cost",
+  "battery": {
+    "capacity_kwh": 10.0,
+    "soc_init_kwh": 5.0,
+    "soc_min_kwh": 1.0,
+    "soc_max_kwh": 10.0,
+    "p_charge_max_kw": 5.0,
+    "p_discharge_max_kw": 5.0,
+    "charge_efficiency": 0.95,
+    "discharge_efficiency": 0.95,
+    "degradation_cost_per_kwh": 0.015,
+    "cyclic_soc": true
+  },
+  "grid": {
+    "import_limit_kw": 10.0,
+    "export_limit_kw": 5.0
+  },
+  "deferrable_load": {
+    "enabled": true,
+    "name": "ev_charger",
+    "energy_required_kwh": 6.0,
+    "max_power_kw": 3.0,
+    "earliest_hour": 10,
+    "latest_hour": 17
+  },
+  "simulation": {
+    "pv_peak_kw": 5.0,
+    "sunrise_hour": 6,
+    "sunset_hour": 18
+  },
+  "output": {
+    "schedule_csv": "mini_emhass_schedule.csv",
+    "plot_png": "mini_emhass_results.png",
+    "actions_json": "mini_emhass_action.json"
+  }
+}

@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local virtual environments should never be uploaded to GitHub.
+venv/
+.venv/
+
+# Local editor / notebook noise.
+.idea/
+.vscode/
+.ipynb_checkpoints/
+
