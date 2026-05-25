@@ -7,6 +7,7 @@ It contains three progressively richer tools:
 1. `battery_optimizer.py`: a minimal 24-hour battery arbitrage optimizer
 2. `mini_emhass.py`: a compact EMHASS-inspired home energy scheduler
 3. `amber_vpp_simulator.py`: a simulator comparing Home Assistant, Amber-style wholesale pricing, and traditional VPP programs
+4. `energy_flow_panel.html`: a local animated dashboard panel for the simulated dispatch results
 
 The project uses [Pyomo](https://www.pyomo.org/) for optimization and [HiGHS](https://highs.dev/) as the open-source LP/MILP solver.
 
@@ -17,6 +18,8 @@ battery_optimizer/
 ├── battery_optimizer.py       # Minimal battery arbitrage model
 ├── mini_emhass.py             # PV/load/battery/grid home EMS optimizer
 ├── amber_vpp_simulator.py     # Amber / VPP / Home Assistant revenue simulator
+├── energy_flow_panel.html     # Animated local dashboard panel
+├── energy_flow_panel_preview.png
 ├── config_mini_emhass.json    # Mini-EMHASS configuration
 ├── requirements.txt           # Python dependencies
 ├── outputs/                   # Amber/VPP simulator outputs
@@ -201,6 +204,40 @@ Estimated value: 329.13 AUD / 30 days
 ```
 
 This is not a tariff quote. It is a model output under the assumptions encoded in the script.
+
+## Animated Energy Flow Panel
+
+`energy_flow_panel.html` is a static local dashboard for the best conservative Amber-style case.
+
+It shows:
+
+- animated power flow between PV, home load, battery, and grid
+- hourly SOC, PV, load, grid import/export, and battery setpoint
+- monthly strategy value comparison
+- dispatch and SOC mini charts
+- conservative scenario ranking
+
+Open it directly:
+
+```bash
+open energy_flow_panel.html
+```
+
+Or serve it locally:
+
+```bash
+python3 -m http.server 8010
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8010/energy_flow_panel.html
+```
+
+Preview:
+
+![Energy flow panel](energy_flow_panel_preview.png)
 
 ## Important Assumptions
 

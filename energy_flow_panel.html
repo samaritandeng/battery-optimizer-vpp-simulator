@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Energy Flow Panel</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --ink: #20242a;
+      --muted: #68717d;
+      --line: #d7d2c8;
+      --panel: #fffdf8;
+      --pv: #f4a62a;
+      --battery: #2a9d8f;
+      --grid: #5266d8;
+      --home: #e85d75;
+      --export: #7a5af8;
+      --good: #176f52;
+      --warn: #b45309;
+      --shadow: 0 16px 40px rgba(32, 36, 42, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(120deg, rgba(42, 157, 143, 0.08), transparent 34%),
+        linear-gradient(300deg, rgba(232, 93, 117, 0.08), transparent 30%),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .shell {
+      width: min(1420px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 780px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    button,
+    .chip {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      padding: 0 12px;
+      box-shadow: 0 3px 10px rgba(32, 36, 42, 0.04);
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button[aria-pressed="true"] {
+      color: white;
+      border-color: #2f3845;
+      background: #2f3845;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--battery);
+      box-shadow: 0 0 0 5px rgba(42, 157, 143, 0.15);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 280px minmax(520px, 1fr) 340px;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: rgba(255, 253, 248, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 720;
+      letter-spacing: 0.08em;
+    }
+
+    .metric-list {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .metric {
+      min-height: 92px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--accent);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 780;
+      white-space: nowrap;
+    }
+
+    .metric-sub {
+      margin-top: 7px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .flow-wrap {
+      min-height: 640px;
+      display: grid;
+      grid-template-rows: auto minmax(420px, 1fr) auto;
+    }
+
+    .flow-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      align-items: center;
+    }
+
+    .hour-readout {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .hour-readout strong {
+      font-size: 42px;
+      line-height: 1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hour-readout span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .canvas-stage {
+      position: relative;
+      min-height: 420px;
+      background:
+        linear-gradient(90deg, rgba(215, 210, 200, 0.38) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(215, 210, 200, 0.30) 1px, transparent 1px),
+        #fffaf1;
+      background-size: 48px 48px;
+    }
+
+    #flowCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+    }
+
+    .node {
+      position: absolute;
+      width: 126px;
+      min-height: 82px;
+      border-radius: 8px;
+      border: 1px solid rgba(32, 36, 42, 0.14);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 24px rgba(32, 36, 42, 0.10);
+      padding: 12px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .node .name {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 680;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .node .value {
+      margin-top: 6px;
+      font-size: 22px;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .node .unit {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .node.pv { left: 18%; top: 24%; --accent: var(--pv); }
+    .node.home { left: 50%; top: 50%; --accent: var(--home); }
+    .node.battery { left: 24%; top: 76%; --accent: var(--battery); }
+    .node.gridnode { left: 82%; top: 50%; --accent: var(--grid); }
+
+    .node::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      background: var(--accent);
+      border-radius: 0 0 8px 8px;
+    }
+
+    .flow-footer {
+      display: grid;
+      grid-template-columns: 96px 1fr 90px;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .range {
+      width: 100%;
+      accent-color: var(--battery);
+    }
+
+    .chart-stack {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    .mini-chart {
+      height: 178px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 10px;
+    }
+
+    .mini-chart canvas {
+      width: 100%;
+      height: 118px;
+      display: block;
+    }
+
+    .chart-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 720;
+    }
+
+    .chart-title strong {
+      color: var(--ink);
+      letter-spacing: 0;
+      text-transform: none;
+      font-size: 13px;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-table th,
+    .summary-table td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .summary-table th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .summary-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .summary-table td:last-child,
+    .summary-table th:last-child {
+      text-align: right;
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1120px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        width: min(100vw - 20px, 1420px);
+        padding-top: 12px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .flow-head,
+      .flow-footer {
+        grid-template-columns: 1fr;
+      }
+
+      .hour-readout {
+        justify-content: flex-start;
+      }
+
+      .node {
+        width: 104px;
+        min-height: 74px;
+      }
+
+      .node .value {
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Energy Flow Panel</h1>
+        <p class="subtitle">Summer conservative case, Amber-style dispatch, 40 kWh battery. The lines move with the optimized hourly power flows.</p>
+      </div>
+      <div class="toolbar" aria-label="Panel controls">
+        <span class="chip"><span class="dot"></span>Live simulation view</span>
+        <button id="playButton" type="button" aria-pressed="true">Pause</button>
+        <button id="resetButton" type="button">Reset</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <aside class="panel">
+        <div class="section-title">
+          <h2>Current Hour</h2>
+          <span class="chip" id="modeChip">Amber SmartShift</span>
+        </div>
+        <div class="metric-list">
+          <article class="metric" style="--accent: var(--pv)">
+            <div class="metric-label">PV production</div>
+            <div class="metric-value" id="pvValue">0.0</div>
+            <div class="metric-sub">kW available on site</div>
+          </article>
+          <article class="metric" style="--accent: var(--home)">
+            <div class="metric-label">Home load</div>
+            <div class="metric-value" id="loadValue">0.0</div>
+            <div class="metric-sub">kW demand this hour</div>
+          </article>
+          <article class="metric" style="--accent: var(--battery)">
+            <div class="metric-label">Battery SOC</div>
+            <div class="metric-value" id="socValue">0.0</div>
+            <div class="metric-sub">kWh at hour end</div>
+          </article>
+          <article class="metric" style="--accent: var(--grid)">
+            <div class="metric-label">Grid exchange</div>
+            <div class="metric-value" id="gridValue">0.0</div>
+            <div class="metric-sub">positive import, negative export</div>
+          </article>
+        </div>
+      </aside>
+
+      <section class="panel flow-wrap">
+        <div class="flow-head">
+          <div>
+            <div class="section-title" style="border: 0; padding: 0;">
+              <h2>Animated Power Flow</h2>
+            </div>
+            <p class="subtitle" id="hourNarrative">Battery covers overnight load while PV is unavailable.</p>
+          </div>
+          <div class="hour-readout">
+            <strong id="hourValue">00</strong>
+            <span>hour</span>
+          </div>
+        </div>
+
+        <div class="canvas-stage" id="stage">
+          <canvas id="flowCanvas"></canvas>
+          <div class="node pv">
+            <div class="name">PV</div>
+            <div class="value"><span id="nodePv">0.0</span></div>
+            <div class="unit">kW</div>
+          </div>
+          <div class="node home">
+            <div class="name">Home</div>
+            <div class="value"><span id="nodeHome">0.0</span></div>
+            <div class="unit">kW</div>
+          </div>
+          <div class="node battery">
+            <div class="name">Battery</div>
+            <div class="value"><span id="nodeBattery">0.0</span></div>
+            <div class="unit">kW net</div>
+          </div>
+          <div class="node gridnode">
+            <div class="name">Grid</div>
+            <div class="value"><span id="nodeGrid">0.0</span></div>
+            <div class="unit">kW net</div>
+          </div>
+        </div>
+
+        <div class="flow-footer">
+          <span class="chip">00:00</span>
+          <input class="range" id="hourRange" type="range" min="0" max="23" step="1" value="0" aria-label="Hour">
+          <span class="chip" id="endHour">23:00</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="section-title">
+          <h2>Strategy Value</h2>
+          <span class="chip">AUD / 30d</span>
+        </div>
+        <div class="chart-stack">
+          <div class="mini-chart">
+            <div class="chart-title">
+              <span>Monthly Value</span>
+              <strong id="bestValue">$329</strong>
+            </div>
+            <canvas id="valueChart"></canvas>
+          </div>
+          <div class="mini-chart">
+            <div class="chart-title">
+              <span>Dispatch Shape</span>
+              <strong>Battery kW</strong>
+            </div>
+            <canvas id="dispatchChart"></canvas>
+          </div>
+          <div class="mini-chart">
+            <div class="chart-title">
+              <span>SOC Curve</span>
+              <strong>40 kWh</strong>
+            </div>
+            <canvas id="socChart"></canvas>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel" style="margin-top: 16px;">
+      <div class="section-title">
+        <h2>Conservative Scenario Ranking</h2>
+        <span class="chip">Summer and winter</span>
+      </div>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Season</th>
+            <th>Mode</th>
+            <th>Battery</th>
+            <th>Monthly value</th>
+          </tr>
+        </thead>
+        <tbody id="summaryRows"></tbody>
+      </table>
+    </section>
+
+    <p class="footer-note">This panel is a visual layer over the Pyomo simulation output. Values are simulated assumptions, not tariff quotes or financial advice.</p>
+  </main>
+
+  <script>
+    const dispatch = [
+      {hour: 0, load_kw: 0.8, pv_kw: 0, spot_price: 0.08, import_price: 0.26, export_price: 0.08, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.8, soc_end_kwh: 19.1579, cumulative_net_value: -0.0425556},
+      {hour: 1, load_kw: 0.7, pv_kw: 0, spot_price: 0.07, import_price: 0.25, export_price: 0.07, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.7, soc_end_kwh: 18.4211, cumulative_net_value: -0.0836111},
+      {hour: 2, load_kw: 0.7, pv_kw: 0, spot_price: 0.06, import_price: 0.24, export_price: 0.06, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.7, soc_end_kwh: 17.6842, cumulative_net_value: -0.124667},
+      {hour: 3, load_kw: 0.7, pv_kw: 0, spot_price: 0.05, import_price: 0.23, export_price: 0.05, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.7, soc_end_kwh: 16.9474, cumulative_net_value: -0.165722},
+      {hour: 4, load_kw: 0.8, pv_kw: 0, spot_price: 0.05, import_price: 0.23, export_price: 0.05, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.8, soc_end_kwh: 16.1053, cumulative_net_value: -0.208278},
+      {hour: 5, load_kw: 1, pv_kw: 0, spot_price: 0.06, import_price: 0.24, export_price: 0.06, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 1, soc_end_kwh: 15.0526, cumulative_net_value: -0.253833},
+      {hour: 6, load_kw: 1.4, pv_kw: 0.696557, spot_price: 0.08, import_price: 0.26, export_price: 0.08, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.703443, soc_end_kwh: 14.3122, cumulative_net_value: -0.294941},
+      {hour: 7, load_kw: 1.8, pv_kw: 2.05212, spot_price: 0.1, import_price: 0.28, export_price: 0.1, grid_import_kw: 0, grid_export_kw: 0.252121, battery_charge_kw: 0, battery_discharge_kw: 0, soc_end_kwh: 14.3122, cumulative_net_value: -0.300284},
+      {hour: 8, load_kw: 1.5, pv_kw: 3.29705, spot_price: 0.08, import_price: 0.26, export_price: 0.08, grid_import_kw: 0, grid_export_kw: 1.27355, battery_charge_kw: 0.523502, battery_discharge_kw: 0, soc_end_kwh: 14.8095, cumulative_net_value: -0.236808},
+      {hour: 9, load_kw: 1.2, pv_kw: 4.36424, spot_price: 0.03, import_price: 0.21, export_price: 0.03, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 3.16424, battery_discharge_kw: 0, soc_end_kwh: 17.8155, cumulative_net_value: -0.314827},
+      {hour: 10, load_kw: 1, pv_kw: 5.19615, spot_price: 0, import_price: 0.18, export_price: 0, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 4.19615, battery_discharge_kw: 0, soc_end_kwh: 21.8019, cumulative_net_value: -0.408325},
+      {hour: 11, load_kw: 0.9, pv_kw: 5.74794, spot_price: -0.02, import_price: 0.16, export_price: -0.02, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 4.84794, battery_discharge_kw: 0, soc_end_kwh: 26.4074, cumulative_net_value: -0.5116},
+      {hour: 12, load_kw: 0.9, pv_kw: 5.98985, spot_price: -0.01, import_price: 0.17, export_price: -0.01, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 5.08985, battery_discharge_kw: 0, soc_end_kwh: 31.2428, cumulative_net_value: -0.618503},
+      {hour: 13, load_kw: 1, pv_kw: 5.90885, spot_price: 0.02, import_price: 0.2, export_price: 0.02, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 4.90885, battery_discharge_kw: 0, soc_end_kwh: 35.9062, cumulative_net_value: -0.722691},
+      {hour: 14, load_kw: 1.2, pv_kw: 5.5093, spot_price: 0.05, import_price: 0.23, export_price: 0.05, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 4.3093, battery_discharge_kw: 0, soc_end_kwh: 40, cumulative_net_value: -0.817886},
+      {hour: 15, load_kw: 1.6, pv_kw: 4.81274, spot_price: 0.09, import_price: 0.27, export_price: 0.09, grid_import_kw: 0, grid_export_kw: 3.21274, battery_charge_kw: 0, battery_discharge_kw: 0, soc_end_kwh: 40, cumulative_net_value: -0.559295},
+      {hour: 16, load_kw: 2.2, pv_kw: 3.85673, spot_price: 0.14, import_price: 0.32, export_price: 0.14, grid_import_kw: 0, grid_export_kw: 1.65673, battery_charge_kw: 0, battery_discharge_kw: 0, soc_end_kwh: 40, cumulative_net_value: -0.357909},
+      {hour: 17, load_kw: 3.1, pv_kw: 2.6928, spot_price: 0.22, import_price: 0.4, export_price: 0.22, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0.407205, soc_end_kwh: 39.5714, cumulative_net_value: -0.394573},
+      {hour: 18, load_kw: 4, pv_kw: 1.3837, spot_price: 0.36, import_price: 0.54, export_price: 0.36, grid_import_kw: 0, grid_export_kw: 8.11149, battery_charge_kw: 0, battery_discharge_kw: 10.7278, soc_end_kwh: 28.2789, cumulative_net_value: 2.33409},
+      {hour: 19, load_kw: 4.3, pv_kw: 0, spot_price: 0.48, import_price: 0.66, export_price: 0.48, grid_import_kw: 0, grid_export_kw: 10, battery_charge_kw: 0, battery_discharge_kw: 14.3, soc_end_kwh: 13.2263, cumulative_net_value: 6.88904},
+      {hour: 20, load_kw: 3.6, pv_kw: 0, spot_price: 0.34, import_price: 0.52, export_price: 0.34, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 3.6, soc_end_kwh: 9.43684, cumulative_net_value: 6.80448},
+      {hour: 21, load_kw: 2.6, pv_kw: 0, spot_price: 0.22, import_price: 0.4, export_price: 0.22, grid_import_kw: 0, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 2.6, soc_end_kwh: 6.7, cumulative_net_value: 6.73492},
+      {hour: 22, load_kw: 1.6, pv_kw: 0, spot_price: 0.14, import_price: 0.32, export_price: 0.14, grid_import_kw: 1.6, grid_export_kw: 0, battery_charge_kw: 0, battery_discharge_kw: 0, soc_end_kwh: 6.7, cumulative_net_value: 6.19237},
+      {hour: 23, load_kw: 1, pv_kw: 0, spot_price: 0.1, import_price: 0.28, export_price: 0.1, grid_import_kw: 15, grid_export_kw: 0, battery_charge_kw: 14, battery_discharge_kw: 0, soc_end_kwh: 20, cumulative_net_value: 1.75181},
+    ];
+
+    const summary = [
+      {season: "summer", mode: "amber_smartshift", capacity: 40, value: 329.13},
+      {season: "summer", mode: "amber_smartshift", capacity: 20, value: 229.91},
+      {season: "summer", mode: "fixed_vpp", capacity: 40, value: 178.70},
+      {season: "summer", mode: "self_ha", capacity: 40, value: 158.97},
+      {season: "summer", mode: "fixed_vpp", capacity: 20, value: 144.32},
+      {season: "summer", mode: "amber_smartshift", capacity: 10, value: 138.83},
+      {season: "winter", mode: "amber_smartshift", capacity: 40, value: 135.28},
+      {season: "winter", mode: "fixed_vpp", capacity: 40, value: 130.57},
+      {season: "winter", mode: "amber_smartshift", capacity: 20, value: 126.42},
+      {season: "summer", mode: "self_ha", capacity: 20, value: 124.59},
+      {season: "winter", mode: "fixed_vpp", capacity: 20, value: 118.10},
+      {season: "winter", mode: "self_ha", capacity: 40, value: 110.84},
+    ];
+
+    const colors = {
+      pv: "#f4a62a",
+      battery: "#2a9d8f",
+      grid: "#5266d8",
+      home: "#e85d75",
+      export: "#7a5af8",
+      ink: "#20242a",
+      muted: "#68717d",
+      line: "#d7d2c8",
+    };
+
+    const els = {
+      canvas: document.getElementById("flowCanvas"),
+      stage: document.getElementById("stage"),
+      hourRange: document.getElementById("hourRange"),
+      hourValue: document.getElementById("hourValue"),
+      hourNarrative: document.getElementById("hourNarrative"),
+      playButton: document.getElementById("playButton"),
+      resetButton: document.getElementById("resetButton"),
+      pvValue: document.getElementById("pvValue"),
+      loadValue: document.getElementById("loadValue"),
+      socValue: document.getElementById("socValue"),
+      gridValue: document.getElementById("gridValue"),
+      nodePv: document.getElementById("nodePv"),
+      nodeHome: document.getElementById("nodeHome"),
+      nodeBattery: document.getElementById("nodeBattery"),
+      nodeGrid: document.getElementById("nodeGrid"),
+      summaryRows: document.getElementById("summaryRows"),
+      valueChart: document.getElementById("valueChart"),
+      dispatchChart: document.getElementById("dispatchChart"),
+      socChart: document.getElementById("socChart"),
+    };
+
+    const ctx = els.canvas.getContext("2d");
+    let hour = 0;
+    let playing = true;
+    let lastStep = 0;
+    let particles = [];
+
+    function money(value) {
+      return "$" + Math.round(value).toLocaleString();
+    }
+
+    function fixed(value, digits = 1) {
+      return Number(value).toFixed(digits);
+    }
+
+    function resizeCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const context = canvas.getContext("2d");
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return {width: rect.width, height: rect.height};
+    }
+
+    function nodePoint(name, size) {
+      const points = {
+        pv: [0.18, 0.24],
+        home: [0.50, 0.50],
+        battery: [0.24, 0.76],
+        grid: [0.82, 0.50],
+      };
+      const [x, y] = points[name];
+      return {x: x * size.width, y: y * size.height};
+    }
+
+    function buildFlows(row) {
+      const flows = [];
+      const pvToHome = Math.min(row.pv_kw, row.load_kw);
+      const batteryToHome = Math.min(row.battery_discharge_kw, Math.max(row.load_kw - pvToHome, 0));
+      const gridToHome = Math.max(row.grid_import_kw - row.battery_charge_kw, 0);
+
+      if (pvToHome > 0.05) flows.push({from: "pv", to: "home", kw: pvToHome, color: colors.pv});
+      if (row.battery_charge_kw > 0.05) flows.push({from: "pv", to: "battery", kw: row.battery_charge_kw, color: colors.battery});
+      if (batteryToHome > 0.05) flows.push({from: "battery", to: "home", kw: batteryToHome, color: colors.battery});
+      if (row.grid_import_kw > 0.05) flows.push({from: "grid", to: row.battery_charge_kw > 0.05 ? "battery" : "home", kw: row.grid_import_kw, color: colors.grid});
+      if (row.grid_export_kw > 0.05) flows.push({from: row.battery_discharge_kw > row.load_kw ? "battery" : "pv", to: "grid", kw: row.grid_export_kw, color: colors.export});
+      return flows;
+    }
+
+    function spawnParticles(flows, size) {
+      for (const flow of flows) {
+        const count = Math.min(5, Math.ceil(flow.kw / 2.2));
+        for (let i = 0; i < count; i += 1) {
+          particles.push({
+            ...flow,
+            t: Math.random(),
+            speed: 0.0025 + Math.min(flow.kw, 15) * 0.00035,
+            radius: 2.4 + Math.min(flow.kw, 15) * 0.14,
+          });
+        }
+      }
+      if (particles.length > 220) particles = particles.slice(-220);
+    }
+
+    function drawPath(a, b, color, width, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      const bend = Math.abs(a.x - b.x) * 0.24;
+      ctx.moveTo(a.x, a.y);
+      ctx.bezierCurveTo(a.x + bend, a.y, b.x - bend, b.y, b.x, b.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function pointOnCurve(a, b, t) {
+      const bend = Math.abs(a.x - b.x) * 0.24;
+      const p1 = {x: a.x + bend, y: a.y};
+      const p2 = {x: b.x - bend, y: b.y};
+      const u = 1 - t;
+      return {
+        x: u * u * u * a.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * b.x,
+        y: u * u * u * a.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * b.y,
+      };
+    }
+
+    function drawFlow() {
+      const size = resizeCanvas(els.canvas);
+      const row = dispatch[hour];
+      const flows = buildFlows(row);
+      ctx.clearRect(0, 0, size.width, size.height);
+
+      for (const flow of flows) {
+        const a = nodePoint(flow.from, size);
+        const b = nodePoint(flow.to, size);
+        drawPath(a, b, flow.color, 4 + Math.min(flow.kw, 15) * 0.42, 0.18);
+        drawPath(a, b, flow.color, 1.4, 0.62);
+      }
+
+      spawnParticles(flows, size);
+      particles = particles.filter((particle) => {
+        particle.t += particle.speed;
+        return particle.t <= 1.03;
+      });
+
+      for (const particle of particles) {
+        const a = nodePoint(particle.from, size);
+        const b = nodePoint(particle.to, size);
+        const p = pointOnCurve(a, b, particle.t);
+        ctx.save();
+        ctx.globalAlpha = 0.78;
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, particle.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function updateText() {
+      const row = dispatch[hour];
+      const gridNet = row.grid_import_kw - row.grid_export_kw;
+      const batteryNet = row.battery_charge_kw - row.battery_discharge_kw;
+      const h = String(hour).padStart(2, "0");
+      els.hourValue.textContent = h;
+      els.pvValue.textContent = fixed(row.pv_kw);
+      els.loadValue.textContent = fixed(row.load_kw);
+      els.socValue.textContent = fixed(row.soc_end_kwh);
+      els.gridValue.textContent = fixed(gridNet);
+      els.nodePv.textContent = fixed(row.pv_kw);
+      els.nodeHome.textContent = fixed(row.load_kw);
+      els.nodeBattery.textContent = fixed(batteryNet);
+      els.nodeGrid.textContent = fixed(gridNet);
+      els.hourRange.value = String(hour);
+
+      if (row.battery_charge_kw > 0.1) {
+        els.hourNarrative.textContent = "PV and low-price energy refill the battery for evening export.";
+      } else if (row.grid_export_kw > 0.1) {
+        els.hourNarrative.textContent = "Stored energy and PV are exported during higher-value hours.";
+      } else if (row.battery_discharge_kw > 0.1) {
+        els.hourNarrative.textContent = "Battery discharge covers site demand and reduces grid exposure.";
+      } else {
+        els.hourNarrative.textContent = "The system idles while PV and load are roughly balanced.";
+      }
+    }
+
+    function drawLineChart(canvas, series, options) {
+      const rect = resizeCanvas(canvas);
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, rect.width, rect.height);
+      const pad = {left: 28, right: 12, top: 12, bottom: 24};
+      const w = rect.width - pad.left - pad.right;
+      const h = rect.height - pad.top - pad.bottom;
+      const values = series.flatMap((s) => s.values);
+      const min = options.min ?? Math.min(...values);
+      const max = options.max ?? Math.max(...values);
+      const span = Math.max(0.0001, max - min);
+
+      context.strokeStyle = colors.line;
+      context.lineWidth = 1;
+      for (let i = 0; i <= 3; i += 1) {
+        const y = pad.top + h * i / 3;
+        context.beginPath();
+        context.moveTo(pad.left, y);
+        context.lineTo(pad.left + w, y);
+        context.stroke();
+      }
+
+      for (const s of series) {
+        context.strokeStyle = s.color;
+        context.lineWidth = 2.4;
+        context.beginPath();
+        s.values.forEach((value, index) => {
+          const x = pad.left + w * index / (s.values.length - 1);
+          const y = pad.top + h - ((value - min) / span) * h;
+          if (index === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        });
+        context.stroke();
+      }
+
+      const x = pad.left + w * hour / 23;
+      context.strokeStyle = "#20242a";
+      context.setLineDash([4, 4]);
+      context.beginPath();
+      context.moveTo(x, pad.top);
+      context.lineTo(x, pad.top + h);
+      context.stroke();
+      context.setLineDash([]);
+    }
+
+    function drawBarChart(canvas, rows) {
+      const rect = resizeCanvas(canvas);
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, rect.width, rect.height);
+      const pad = {left: 32, right: 8, top: 10, bottom: 22};
+      const w = rect.width - pad.left - pad.right;
+      const h = rect.height - pad.top - pad.bottom;
+      const max = Math.max(...rows.map((r) => r.value)) * 1.12;
+      const barW = w / rows.length * 0.68;
+
+      context.strokeStyle = colors.line;
+      context.beginPath();
+      context.moveTo(pad.left, pad.top + h);
+      context.lineTo(pad.left + w, pad.top + h);
+      context.stroke();
+
+      rows.forEach((row, index) => {
+        const x = pad.left + w * (index + 0.5) / rows.length - barW / 2;
+        const barH = h * row.value / max;
+        context.fillStyle = row.color;
+        context.fillRect(x, pad.top + h - barH, barW, barH);
+      });
+    }
+
+    function drawCharts() {
+      drawBarChart(els.valueChart, [
+        {value: 158.97, color: "#2a9d8f"},
+        {value: 329.13, color: "#e85d75"},
+        {value: 178.70, color: "#5266d8"},
+      ]);
+
+      drawLineChart(els.dispatchChart, [
+        {values: dispatch.map((r) => r.battery_charge_kw), color: colors.battery},
+        {values: dispatch.map((r) => -r.battery_discharge_kw), color: colors.home},
+      ], {min: -15, max: 15});
+
+      drawLineChart(els.socChart, [
+        {values: dispatch.map((r) => r.soc_end_kwh), color: colors.battery},
+      ], {min: 0, max: 40});
+    }
+
+    function renderSummary() {
+      els.summaryRows.innerHTML = summary.map((row) => `
+        <tr>
+          <td>${row.season}</td>
+          <td>${row.mode}</td>
+          <td>${row.capacity} kWh</td>
+          <td>${money(row.value)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function step(timestamp) {
+      if (playing && timestamp - lastStep > 1050) {
+        hour = (hour + 1) % 24;
+        updateText();
+        drawCharts();
+        lastStep = timestamp;
+      }
+      drawFlow();
+      requestAnimationFrame(step);
+    }
+
+    els.hourRange.addEventListener("input", (event) => {
+      hour = Number(event.target.value);
+      updateText();
+      drawCharts();
+    });
+
+    els.playButton.addEventListener("click", () => {
+      playing = !playing;
+      els.playButton.textContent = playing ? "Pause" : "Play";
+      els.playButton.setAttribute("aria-pressed", String(playing));
+    });
+
+    els.resetButton.addEventListener("click", () => {
+      hour = 0;
+      particles = [];
+      updateText();
+      drawCharts();
+    });
+
+    window.addEventListener("resize", () => {
+      drawCharts();
+      drawFlow();
+    });
+
+    renderSummary();
+    updateText();
+    drawCharts();
+    requestAnimationFrame(step);
+  </script>
+</body>
+</html>
